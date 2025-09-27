@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   width="600"
+   height="400"
+   viewBox="0 0 158.75 105.83333"
+   version="1.1"
+   id="svg99"
+   inkscape:version="1.1.2 (1:1.1+202202050950+0a00cf5339)"
+   sodipodi:docname="convex-intersection-test-data-source.svg"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:svg="http://www.w3.org/2000/svg">
+  <sodipodi:namedview
+     id="namedview101"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageshadow="2"
+     inkscape:pageopacity="0.0"
+     inkscape:pagecheckerboard="0"
+     inkscape:document-units="px"
+     showgrid="false"
+     units="px"
+     width="600px"
+     inkscape:zoom="2.2404862"
+     inkscape:cx="282.75112"
+     inkscape:cy="182.10333"
+     inkscape:window-width="1400"
+     inkscape:window-height="1026"
+     inkscape:window-x="1920"
+     inkscape:window-y="20"
+     inkscape:window-maximized="0"
+     inkscape:current-layer="layer1"
+     showguides="true" />
+  <defs
+     id="defs96">
+    <inkscape:perspective
+       sodipodi:type="inkscape:persp3d"
+       inkscape:vp_x="8.5832293 : 38.80465 : 1"
+       inkscape:vp_y="61.412098 : 219.22698 : 1"
+       inkscape:vp_z="104.71475 : 45.067102 : 1"
+       inkscape:persp3d-origin="79.375 : 35.277777 : 1"
+       id="perspective211" />
+  </defs>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <path
+       id="path839"
+       style="fill:none;stroke:#000000;stroke-width:0.21609"
+       inkscape:transform-center-y="-9.6120464"
+       transform="matrix(0.36732337,0,0,0.36732337,30.395443,8.3114413)"
+       d="M 211.58827,168.81575 H 30.29241 L 63.597705,86.941925 120.94034,11.808929 Z"
+       sodipodi:nodetypes="ccccc" />
+    <path
+       id="path2094"
+       style="fill:none;stroke:#000000;stroke-width:0.21609"
+       inkscape:transform-center-y="9.6120445"
+       d="M 211.58827,168.81575 152.50078,193.06277 80.311064,186.97954 27.479962,133.20866 50.50783,71.611001 120.94034,11.808929 Z"
+       sodipodi:nodetypes="ccccccc"
+       inkscape:transform-center-x="1.8215707e-06"
+       transform="matrix(0.18366168,-0.31811137,0.31811137,0.18366168,15.553893,67.963099)" />
+  </g>
+</svg>

@@ -1,0 +1,85 @@
+[package]
+name = "swirl"
+version = "0.2.0"
+description = "SWIRL: Scene-graph Web-oriented Independent Rendering Library"
+authors = ["Alexander Feterman-Naranjo <10951848+CubOfJudahsLion@users.noreply.github.com>"]
+edition = "2021"
+readme = "README.pdf"
+repository = "http://multidev:7990/scm/dev/gameengines.git"
+license-file = "LICENSE.txt"
+keywords = ["library", "scene-graph", "graphics", "webassembly"]
+
+[lib]
+crate-type = ["staticlib", "rlib"]
+
+[dependencies]
+paste = "1.0"
+lazy_static = "1.4"
+wasm-bindgen = { version = "~0.2.79", features = ["enable-interning"] }
+js-sys = "~0.3.56"
+wasm-bindgen-futures = "~0.4.29"
+
+[profile.dev]
+opt-level = 0
+debug = true
+split-debuginfo = "packed"
+
+[profile.release]
+strip = true
+lto = true
+
+[dependencies.web-sys]
+version = "~0.3.55" 
+features =  [ "console"
+            , "AudioContext"
+            , "AudioContextState"
+            , "AudioDestinationNode"
+            , "AudioParam"
+            , "CanvasGradient"
+            , "CanvasPattern"
+            , "CanvasRenderingContext2d"
+            , "CssStyleDeclaration"
+            , "Document"
+            , "DomRect"
+            , "Element"
+            , "Event"
+            , "EventTarget"
+            , "GainNode"
+            , "HtmlAudioElement"
+            , "HtmlCanvasElement"
+            , "HtmlCollection"
+            , "HtmlElement"
+            , "HtmlHeadElement"
+            , "HtmlImageElement"
+            , "HtmlLabelElement"
+            , "HtmlMediaElement"
+            , "HtmlSourceElement"
+            , "HtmlStyleElement"
+            , "ImageData"
+            , "MediaElementAudioSourceNode"
+            , "MouseEvent"
+            , "Navigator"
+            , "Node"
+            , "StereoPannerNode"
+            , "TextMetrics"
+            , "TimeRanges"
+            , "Touch"
+            , "TouchEvent"
+            , "TouchList"
+            , "Window"
+            , "XmlHttpRequest"
+            , "XmlHttpRequestResponseType"
+            ]
+
+[dev-dependencies]
+wasm-bindgen-test = "~0.3.28"
+getrandom = { version = "~0.2.4", features = ["js"]}
+rand = "~0.8.4"
+futures = "~0.3.17"
+
+[dev-dependencies.web-sys]
+version = "~0.3.55"
+features =  [ "HtmlButtonElement"
+            , "HtmlInputElement"
+            , "HtmlOptionsCollection"
+            ]

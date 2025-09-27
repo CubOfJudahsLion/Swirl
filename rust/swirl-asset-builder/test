@@ -1,0 +1,9 @@
+#! /usr/bin/env bash
+
+system=$(uname -o)
+if [[ "$system" == "Msys" || "$system" == "Cygwin" ]]; then
+	target=x86_64-pc-windows-msvc
+else
+	target=x86_64-unknown-linux-gnu
+fi
+cargo test --target ${target}

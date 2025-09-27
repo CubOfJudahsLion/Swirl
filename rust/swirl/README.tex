@@ -1,0 +1,30 @@
+% Last updated: Wed Aug 25 08:22:49 PM CST 2021
+\documentclass[11pt]{article}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\definecolor{darkteal}{RGB}{0,64,92}
+\definecolor{superlightyellow}{RGB}{255,255,220}
+\newcommand{\link}[2]{\textcolor{darkteal}{\href{#1}{#2}}}
+\newcommand{\cmdline}[1]{\small\colorbox{darkteal}{\textcolor{superlightyellow}{\texttt{#1}}}}
+\newcommand{\filepath}[1]{\colorbox{superlightyellow}{\texttt{#1}}}
+\author{Alex Feterman}
+\title{Running the Test Project}
+\begin{document}
+\section*{About}
+\textbf{SWIRL} (\textbf{S}cene-graph \textbf{W}eb-oriented \textbf{I}ndependent
+\textbf{R}endering \textbf{L}ibrary) is our in-house
+\link{https://webassembly.org/}{WebAssembly}-based display library, written in the
+\link{https://www.rust-lang.org/}{Rust} programming language. It organizes scene
+elements and renders them directly using a \texttt{CanvasRenderingContext2d}. It uses
+no intermediaries and depends on no other libraries than the basic
+\link{https://crates.io/crates/wasm-bindgen}{wasm-bindgen} / \!\!
+\link{https://crates.io/crates/js-sys}{js-sys} / \!\!
+\link{https://crates.io/crates/web-sys}{web-sys} library set created by the
+\textbf{Rust-WASM} team.\\
+\section*{Building and Testing}
+See \filepath{\link{../../README.pdf}{../../README.pdf}} for requisites, building and running
+the test suite and sample project.\\
+\section*{Documentation}
+Documentation for the \textbf{SWIRL} library can be found in HTML form in the \filepath{./doc}
+folder. It's generated automatically when the super-project is built.
+\end{document}

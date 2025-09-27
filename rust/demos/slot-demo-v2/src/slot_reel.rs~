@@ -1,0 +1,239 @@
+//! Module  :   Slot Reel
+//! Purpose :   A single rotating reel with N symbols on it.
+//! Version :   0.1.0
+//! Author  :   Alex Feterman
+//! Created :   Tue Mar  9 08:57:50 AM CST 2021
+//! Modified:   Sun 10/31/2021 10:58 AM
+
+
+use std::fmt::{self, Display, Debug, Formatter};
+
+use wasm_bindgen::{JsValue, JsCast, closure::Closure, throw_str}; //, UnwrapThrowExt};
+use web_sys::{window, console};
+
+use swirl::*;
+
+use super::assets::*;
+
+
+#[derive(Debug)]
+pub enum ReelError {
+    SymbolCountTooSmall,
+    SymbolCountTooBig,
+    //OutOfBounds,
+}
+
+impl Display for ReelError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        match *self {
+            ReelError::SymbolCountTooBig    => f.write_str("Symbol count too big"),
+            ReelError::SymbolCountTooSmall  => f.write_str("Symbol count too small"),
+            //ReelError::OutOfBounds          => f.write_str("Out of bounds"),
+        }
+    }
+}
+
+
+#[allow(dead_code)]
+struct ReelMotion {
+    interval_handle : i32,
+    anim_closure    : Closure<dyn FnMut()>,
+}
+
+
+//  A symbol representation that allows for multi-row/column symbols.
+#[derive(Clone)]
+pub enum SymbolSpace {
+    Single(Icon, SceneGraphNode<f32>, Point<i16>),              // Unique row, with offset for symbol excesses.
+    Multiple(Icon, SceneGraphNode<f32>, u8, u8, Point<i16>),    // Icon, spanned rows up and below and offset.
+    Blank,                                                      // Uninhabited blocks. This allows horizontal
+                                                                // spanning and many other scenarios.
+}
+
+impl Debug for SymbolSpace {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
+        use SymbolSpace::*;
+        match self {
+            &Single(icon, _, ref ofs)                   =>
+                f.write_str(&format!("Single({:?}(@{:?}x{:?}))", icon, ofs.x, ofs.y)),
+            &Multiple(icon, _, above, below, ref ofs)   =>
+                f.write_str(&format!("Multiple({:?}(^{:?}v{:?})(@{:?}x{:?}))", icon, above, below, ofs.x, ofs.y)),
+            &Blank                                      =>
+                f.write_str("Blank"),
+        }
+    }
+}
+
+
+pub struct ReelS {
+    strip_icon_count    : i16,
+    icon_height         : i16,
+    icon_sprites        : Box<[SymbolSpace]>,
+    //visible_icon_count  : i32,
+    strip               : SceneGraphFrame::<f32>,
+    pos                 : i16,
+    motion              : Option<ReelMotion>,
+}
+
+pub struct Reel(Shared<ReelS>);
+
+impl Clone for Reel {
+    #[inline]
+    fn clone(&self) -> Self { Reel(self.0.clone()) }
+}
+
+
+impl Reel {
+    #[inline(always)]
+    #[allow(dead_code)]
+    pub fn len(&self) -> usize {
+        self.0.icon_sprites.len()
+    }
+
+    pub fn new(x: i16, y: i16, icon_height: u16, visible_icon_count: u8, icons: Vec<SymbolSpace>) -> Result<Reel, ReelError> {
+        let strip_icon_count    = icons.len() as i16;
+        console::log_1(&JsValue::from_str(&format!("Creating reel, symbol count: {}.", strip_icon_count)));
+        if strip_icon_count as usize != icons.len() {
+            Err(ReelError::SymbolCountTooBig)?;
+        }
+        let icon_height         = icon_height as i16;
+        let visible_icon_count  = visible_icon_count as i16;
+        if strip_icon_count < visible_icon_count + 2 {
+            Err(ReelError::SymbolCountTooSmall)
+        }
+        else {
+            let mut strip   = SceneGraphFrame::<f32>::new();
+            strip.set_x_and_y(x, y);
+            let mut reel    = Reel(Shared::new(ReelS {
+                strip_icon_count,
+                icon_height,
+                icon_sprites: icons.into_boxed_slice(),
+                strip,
+                pos     : 0,
+                motion  : None,
+            }));
+            reel.set_position(0);
+            Ok(reel)
+        } 
+    }
+
+    pub fn scene_frame(&self) -> SceneGraphFrame<f32> {
+        self.0.strip.clone()
+    }
+
+    #[inline(always)]
+    pub fn scene_node(&self) -> SceneGraphNode<f32> {
+        SceneGraphNode::Frame(self.scene_frame())
+    }
+
+    pub fn set_position(&mut self, pos: i16) {
+        let icon_height         = self.0.icon_height;
+        let icon_count          = self.0.strip_icon_count as i16;
+        let strip_pixel_size    = icon_count * icon_height;
+        self.0.pos              = pos % strip_pixel_size;
+        if self.0.pos < 0 {
+            self.0.pos += strip_pixel_size;
+        }
+        let upper_pos           = (strip_pixel_size - self.0.pos) % strip_pixel_size;
+        console::log_1(&JsValue::from_str(&format!("pos: {}, upper_pos: {}", self.0.pos, upper_pos)));
+        let top_icon            = upper_pos / icon_height;
+        let icon_hidden         = upper_pos % icon_height;
+        self.0.strip.remove_all_children();
+        //for i in -1_i16 .. (if icon_hidden == 0 { 4 } else { 5 }) {
+        for i in 0_i16 .. (if icon_hidden == 0 { 3 } else { 4 }) {
+            let idx         = ((i + top_icon + icon_count) % icon_count as i16) as usize;
+            let mut row_set = self.0.icon_sprites[idx].clone();
+            console::log_1(&JsValue::from_str(&format!("Icon {} is index {} type {:?}", i, idx, row_set)));
+            match row_set {
+                SymbolSpace::Single(_, ref mut sprite, ref pivot)               => { 
+                    sprite.set_x_and_y(pivot.x, i * icon_height - icon_hidden + pivot.y);
+                    console::log_1(&JsValue::from_str(&format!("symbol {} set to {{x: {}, y: {}}}", i, pivot.x, i * icon_height - icon_hidden + pivot.y)));
+                    //console::log_1(&JsValue::from_str(&format!("symbol {} local transform: {:?}", i, sprite.update_transform())));
+                    match self.0.strip.append_child(sprite.clone()) {
+                        Err(err)    => throw_str(&format!("{:?}", err)),
+                        _           => (),
+                    }
+                    console::log_1(&JsValue::from_str(&format!("symbol {} transform: {:?}", i, sprite.update_world_transform_from_top())));
+                },
+                SymbolSpace::Multiple(_, ref mut sprite, above, _, ref pivot)   => {
+                    console::log_1(&JsValue::from_str("bad symbol multiplicity"));
+                    //if i == -1 || above == 0 {
+                    if i == 0 || above == 0 {
+                        sprite.set_x_and_y(pivot.x, (i - above as i16) * icon_height - icon_hidden + pivot.y);
+                        let _ = self.0.strip.append_child(sprite.clone());
+                    }
+                },
+                SymbolSpace::Blank                                              =>
+                    { console::log_1(&JsValue::from_str("bad symbol multiplicity")); },
+                    //(),
+            }
+        }
+    }
+
+
+    const SYMBOLS_PER_SPIN: u16 = 59;
+
+    /// Makes the reel spin for a fixed amount of time.
+    pub fn start_spin<F>(&mut self, every_ms: i32, mut callback: F) -> Result<(), JsValue>
+        where   F:  FnMut() + 'static
+    {
+        console::log_1(&JsValue::from_str(&format!("millis per spinner-frame: {}", every_ms)));
+        self.stop_spin()?;
+        let wnd             = window()
+            .ok_or_else(|| JsValue::from_str("Cannot find main window."))?;
+        let mspf            = every_ms as f32;
+        let mut self_copy   = self.clone();
+        let bottom          = Self::SYMBOLS_PER_SPIN as f32 * self.0.icon_height as f32;
+        let initial_pos     = self.0.pos;
+        use HermiteTangentMode::*;
+        let mut anim_curve  = HermitePiecewiseInterpolator::<f32, f32>::new(
+            FiniteDifference,
+            &[
+                (        -mspf,            0.0, None),
+                (          0.0,            0.0, None),
+                (  mspf *  5.0,           75.0, Some(KonachekBartels {continuity: 0.0, tension: 0.5, bias: 0.0})),
+                (       3425.0,  bottom + 40.0, Some(Linear)),
+                (       3525.0,  bottom + 10.0, None),
+                (       3625.0,         bottom, None),
+                (       3700.0,         bottom, None),
+            ]
+        ).map_err(|_| JsValue::from_str("Couldn't create animation curve."))?;
+        let mut time        = 0.0_f32;
+        let anim_closure    = Closure::wrap(Box::new(move || {
+            let new_pos = anim_curve.interpolate(time);
+            let int_pos = initial_pos + new_pos.round() as i16;
+            console::log_1(&JsValue::from_str(&format!("interpolated: {}, integer plus initial: {}", new_pos, int_pos)));
+            self_copy.set_position(int_pos);
+            //self_copy.set_position(self_copy.position() + self_copy.0.icon_height / 2);
+            time    += mspf;
+            if time > 3625.0 {
+                let _ = self_copy.stop_spin();
+                //  anim_curve is an approximating sampler. Ensure we actually stop at the very end.
+                self_copy.set_position(initial_pos + bottom as i16);
+                console::log_1(&JsValue::from_str(&format!("Final pos value before callback: {}", self_copy.0.pos)));
+                callback();
+                console::log_1(&JsValue::from_str(&format!("Final pos value after callback: {}", self_copy.0.pos)));
+            }
+        }) as Box<dyn FnMut()>);
+        let interval_handle = wnd.set_interval_with_callback_and_timeout_and_arguments_0(
+            anim_closure.as_ref().unchecked_ref(), every_ms
+        )?;
+        self.0.motion = Some(ReelMotion {interval_handle, anim_closure});
+        Ok(())
+    }
+
+    //  Stops the reel.
+    fn stop_spin(&mut self) -> Result<(), JsValue> {
+        match self.0.motion {
+            Some(ReelMotion {interval_handle, anim_closure: _}) => {
+                window()
+                    .ok_or_else(|| JsValue::from_str("Cannot find main window."))?
+                    .clear_interval_with_handle(interval_handle);
+                self.0.motion    = None;
+                Ok(())
+            },
+            _                                                   =>
+                Ok(()),
+        }
+    }
+}

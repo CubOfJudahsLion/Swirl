@@ -1,0 +1,17 @@
+assets:
+
+      OuterGroup {
+        SimpleElement = "filepath.jpg",
+        RangedElement = "prefix" + [1 ..= 25] + "postfix.jpg",
+        GroupElement {
+            InnerSimpleElement1 = "another-filepath1.jpg",
+            InnerRangedElement = "another-prefix-" + [ .. 1000 : 3] + ".png"
+            InnerSimpleElement2 = "another-filepath2.woff",
+            InnerGroupElement {
+                InnermostSimpleElement1 = "whatever.mp3",
+            },
+        },
+    }
+
+graph:
+

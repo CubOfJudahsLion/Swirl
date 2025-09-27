@@ -1,0 +1,15 @@
+[package]
+name = "asset_user"
+description = "Asset generator test, using the proc-macro crate swirl_asset"
+version = "0.1.0"
+authors = ["Alexander Feterman-Naranjo <10951848+CubOfJudahsLion@users.noreply.github.com>"]
+edition = "2018"
+
+[workspace]
+
+[[bin]]
+name = "asset_user"
+path = "main.rs"
+
+[dependencies]
+swirl_asset = { path = "swirl_asset" }

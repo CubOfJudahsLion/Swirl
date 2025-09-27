@@ -1,0 +1,236 @@
+\documentclass[fleqn,landscape]{article}
+
+%% Created with wxMaxima 20.06.6
+
+\setlength{\parskip}{\medskipamount}
+\setlength{\parindent}{0pt}
+\usepackage{iftex}
+\ifPDFTeX
+  % PDFLaTeX or LaTeX 
+  \usepackage[utf8]{inputenc}
+  \usepackage[T1]{fontenc}
+  \DeclareUnicodeCharacter{00B5}{\ensuremath{\mu}}
+\else
+  %  XeLaTeX or LuaLaTeX
+  \usepackage{fontspec}
+\fi
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{amsmath}
+\usepackage{grffile}
+\usepackage{ifthen}
+\newsavebox{\picturebox}
+\newlength{\pictureboxwidth}
+\newlength{\pictureboxheight}
+\newcommand{\includeimage}[1]{
+    \savebox{\picturebox}{\includegraphics{#1}}
+    \settoheight{\pictureboxheight}{\usebox{\picturebox}}
+    \settowidth{\pictureboxwidth}{\usebox{\picturebox}}
+    \ifthenelse{\lengthtest{\pictureboxwidth > .95\linewidth}}
+    {
+        \includegraphics[width=.95\linewidth,height=.80\textheight,keepaspectratio]{#1}
+    }
+    {
+        \ifthenelse{\lengthtest{\pictureboxheight>.80\textheight}}
+        {
+            \includegraphics[width=.95\linewidth,height=.80\textheight,keepaspectratio]{#1}
+            
+        }
+        {
+            \includegraphics{#1}
+        }
+    }
+}
+\newlength{\thislabelwidth}
+\DeclareMathOperator{\abs}{abs}
+\usepackage{animate} % This package is required because the wxMaxima configuration option
+                      % "Export animations to TeX" was enabled when this file was generated.
+
+\definecolor{labelcolor}{RGB}{100,0,0}
+
+\begin{document}
+
+\pagebreak{}
+{\Huge {\scshape Order of operations in SWIRL}}
+\setcounter{section}{0}
+\setcounter{subsection}{0}
+\setcounter{figure}{0}
+
+\textbf{Affine Transformations} are \textit{composable}. \textbf{SWIRL} performs them in the following order:
+\begin{itemize}
+	\item{P} pivoting
+	\item{K} skewing
+	\item{S} scaling
+	\item{R} rotation
+	\item{T} translation
+\end{itemize}
+The mnemonic ``\emph{PiKe SoRTie}'' simplifies memorizing it. Here we show the forms of these elemental transforms. When multiplied by a bi-dimensional \textit{row vector} in the form $\left( x \; y \; 1 \right)$, the product will yield the indicated result. Furthermore, the matrices can be multiplied together, so the vector only needs to be multiplied against the final matrix product.
+
+
+\noindent
+%%%%%%%%
+%% INPUT:
+\begin{minipage}[t]{4.000000em}\color{red}\bfseries
+(\% i1) 
+\end{minipage}
+\begin{minipage}[t]{\textwidth}\color{blue}
+P: matrix([1, 0, 0], [0, 1, 0], [-p\_x, -p\_y, 1]);
+\end{minipage}
+%%%% OUTPUT:
+\[\displaystyle \tag{\% o1} 
+\begin{pmatrix}1 & 0 & 0\\
+0 & 1 & 0\\
+-{p_x} & -{p_y} & 1\end{pmatrix}\mbox{}
+\]
+%%%%%%%%%%%%%%%%
+
+
+\noindent
+%%%%%%%%
+%% INPUT:
+\begin{minipage}[t]{4.000000em}\color{red}\bfseries
+(\% i2)
+\end{minipage}
+\begin{minipage}[t]{\textwidth}\color{blue}
+K: matrix([1, k\_y, 0], [k\_x, 1, 0], [0, 0, 1]);
+\end{minipage}
+%%%% OUTPUT:
+\[\displaystyle \tag{\% o2} 
+\begin{pmatrix}1 & {k_y} & 0\\
+{k_x} & 1 & 0\\
+0 & 0 & 1\end{pmatrix}\mbox{}
+\]
+%%%%%%%%%%%%%%%%
+
+
+\noindent
+%%%%%%%%
+%% INPUT:
+\begin{minipage}[t]{4.000000em}\color{red}\bfseries
+(\% i3)
+\end{minipage}
+\begin{minipage}[t]{\textwidth}\color{blue}
+S: matrix([s\_x, 0, 0], [0, s\_y, 0], [0,0,1]);
+\end{minipage}
+%%%% OUTPUT:
+\[\displaystyle \tag{\% o3} 
+\begin{pmatrix}{s_x} & 0 & 0\\
+0 & {s_y} & 0\\
+0 & 0 & 1\end{pmatrix}\mbox{}
+\]
+%%%%%%%%%%%%%%%%
+
+
+\noindent
+%%%%%%%%
+%% INPUT:
+\begin{minipage}[t]{4.000000em}\color{red}\bfseries
+(\% i4)
+\end{minipage}
+\begin{minipage}[t]{\textwidth}\color{blue}
+R: matrix([cos(\ensuremath{\theta}), sin(\ensuremath{\theta}), 0], [-sin(\ensuremath{\theta}), cos(\ensuremath{\theta}), 0], [0, 0, 1]);
+\end{minipage}
+%%%% OUTPUT:
+\[\displaystyle \tag{\% o4} 
+\begin{pmatrix}\cos{\left( \theta \right) } & \sin{\left( \theta \right) } & 0\\
+-\sin{\left( \theta \right) } & \cos{\left( \theta \right) } & 0\\
+0 & 0 & 1\end{pmatrix}\mbox{}
+\]
+%%%%%%%%%%%%%%%%
+
+
+\noindent
+%%%%%%%%
+%% INPUT:
+\begin{minipage}[t]{4.000000em}\color{red}\bfseries
+(\% i5)
+\end{minipage}
+\begin{minipage}[t]{\textwidth}\color{blue}
+T: matrix([1, 0, 0], [0, 1, 0], [t\_x, t\_y, 1]);
+\end{minipage}
+%%%% OUTPUT:
+\[\displaystyle \tag{\% o5} 
+\begin{pmatrix}1 & 0 & 0\\
+0 & 1 & 0\\
+{t_x} & {t_y} & 1\end{pmatrix}\mbox{}
+\]
+%%%%%%%%%%%%%%%%
+Now for the cumulative transformations. Note that the "." operator means matrix multiplication in Maxima:
+
+
+\noindent
+%%%%%%%%
+%% INPUT:
+\begin{minipage}[t]{4.000000em}\color{red}\bfseries
+(\% i6)
+\end{minipage}
+\begin{minipage}[t]{\textwidth}\color{blue}
+P.K;
+\end{minipage}
+%%%% OUTPUT:
+\[\displaystyle \tag{\% o6} 
+\begin{pmatrix}1 & {k_y} & 0\\
+{k_x} & 1 & 0\\
+-{k_x} {p_y}-{p_x} & -{p_y}-{k_y} {p_x} & 1\end{pmatrix}\mbox{}
+\]
+%%%%%%%%%%%%%%%%
+
+
+\noindent
+%%%%%%%%
+%% INPUT:
+\begin{minipage}[t]{4.000000em}\color{red}\bfseries
+(\% i7)
+\end{minipage}
+\begin{minipage}[t]{\textwidth}\color{blue}
+P.K.S;
+\end{minipage}
+%%%% OUTPUT:
+\[\displaystyle \tag{\% o7} 
+\begin{pmatrix}{s_x} & {k_y} {s_y} & 0\\
+{k_x} {s_x} & {s_y} & 0\\
+-{k_x} {p_y} {s_x}-{p_x} {s_x} & -{p_y} {s_y}-{k_y} {p_x} {s_y} & 1\end{pmatrix}\mbox{}
+\]
+%%%%%%%%%%%%%%%%
+
+
+\noindent
+%%%%%%%%
+%% INPUT:
+\begin{minipage}[t]{4.000000em}\color{red}\bfseries
+(\% i8)
+\end{minipage}
+\begin{minipage}[t]{\textwidth}\color{blue}
+P.K.S.R;
+\end{minipage}
+%%%% OUTPUT:
+\[\displaystyle \tag{\% o8}
+\small{
+\begin{pmatrix}{s_x} \cos{\left( \theta \right) }-{k_y} {s_y} \sin{\left( \theta \right) } & {s_x} \sin{\left( \theta \right) }+{k_y} {s_y} \cos{\left( \theta \right) } & 0\\
+{k_x} {s_x} \cos{\left( \theta \right) }-{s_y} \sin{\left( \theta \right) } & {k_x} {s_x} \sin{\left( \theta \right) }+{s_y} \cos{\left( \theta \right) } & 0\\
+-{p_x} \left( {s_x} \cos{\left( \theta \right) }-{k_y} {s_y} \sin{\left( \theta \right) }\right) -{p_y} \left( {k_x} {s_x} \cos{\left( \theta \right) }-{s_y} \sin{\left( \theta \right) }\right)  & -{p_y} \left( {k_x} {s_x} \sin{\left( \theta \right) }+{s_y} \cos{\left( \theta \right) }\right) -{p_x} \left( {s_x} \sin{\left( \theta \right) }+{k_y} {s_y} \cos{\left( \theta \right) }\right)  & 1\end{pmatrix}\mbox{}
+}
+\]
+%%%%%%%%%%%%%%%%
+
+
+\noindent
+%%%%%%%%
+%% INPUT:
+\begin{minipage}[t]{4.000000em}\color{red}\bfseries
+(\% i9)
+\end{minipage}
+\begin{minipage}[t]{\textwidth}\color{blue}
+P.K.S.R.T;
+\end{minipage}
+%%%% OUTPUT:
+\[\displaystyle \tag{\% o9}
+\small{ 
+\begin{pmatrix}{s_x} \cos{\left( \theta \right) }-{k_y} {s_y} \sin{\left( \theta \right) } & {s_x} \sin{\left( \theta \right) }+{k_y} {s_y} \cos{\left( \theta \right) } & 0\\
+{k_x} {s_x} \cos{\left( \theta \right) }-{s_y} \sin{\left( \theta \right) } & {k_x} {s_x} \sin{\left( \theta \right) }+{s_y} \cos{\left( \theta \right) } & 0\\
+-{p_x} \left( {s_x} \cos{\left( \theta \right) }-{k_y} {s_y} \sin{\left( \theta \right) }\right) -{p_y} \left( {k_x} {s_x} \cos{\left( \theta \right) }-{s_y} \sin{\left( \theta \right) }\right) +{t_x} & -{p_y} \left( {k_x} {s_x} \sin{\left( \theta \right) }+{s_y} \cos{\left( \theta \right) }\right) -{p_x} \left( {s_x} \sin{\left( \theta \right) }+{k_y} {s_y} \cos{\left( \theta \right) }\right) +{t_y} & 1\end{pmatrix}\mbox{}
+}
+\]
+%%%%%%%%%%%%%%%%
+This yields the complete Local Transformation. The [final] World Transformation is obtained when the LocalTransformation is multiplied by its container's World Transformation. §
+\end{document}

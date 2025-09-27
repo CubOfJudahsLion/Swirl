@@ -1,0 +1,19 @@
+normal symbol size: 191x180
+
+TRICERATOPS:
+-----------
+full size: 487x478
+icon (inner) content: 430x417
+2x2 normal icon target size: 382x360
+proportion to inner: 88.84%, 86.33%
+resulting full size: 433x413
+resulting padding: 39x44
+
+T-REX:
+-----
+full size: 422x680
+inner content: 382x652
+2x3 normal icon target size: 382x540
+proportion to inner: 100%, 82.82%
+resulting full size: 422x563
+resulting padding: 22x12

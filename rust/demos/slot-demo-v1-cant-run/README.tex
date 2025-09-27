@@ -1,0 +1,25 @@
+% Last updated: Thu 06/24/2021 10:42 PM
+\documentclass[11pt]{article}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\definecolor{darkteal}{RGB}{0,64,92}
+\definecolor{superlightyellow}{RGB}{255,255,220}
+\newcommand{\link}[2]{\textcolor{darkteal}{\href{#1}{#2}}}
+\newcommand{\cmdline}[1]{\small\colorbox{darkteal}{\textcolor{superlightyellow}{\texttt{#1}}}}
+\newcommand{\filepath}[1]{\colorbox{superlightyellow}{\texttt{#1}}}
+\author{Alex Feterman}
+\title{SWIRL Demo}
+\begin{document}
+\section*{About}
+This demo uses \textbf{SWIRL} to build a fa\c{c}ade for a slots machine. The machine has no more
+internal logic to it than spinning a fixed symbol distance, but it's enough for
+displaying the possibilities of the library.
+
+\section*{Building and Testing}
+(See \filepath{\link{file://../../README.pdf}{../../README.pdf}} for the building process and requisites.)\\
+
+Once the project is built, deploy the contents of the \texttt{./out} folder where it
+can be displayed by a web server, and point your browser at it. It's not possible
+to use a \texttt{file://} location as certain browsers prevent local file reading and
+asset loading wouldn't work.
+\end{document}

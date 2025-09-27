@@ -1,0 +1,17 @@
+[package]
+name = "token-paste"
+version = "0.1.0"
+edition = "2018"
+description = "A very simple token-pasting macro"
+authors = ["Alexander Feterman-Naranjo <10951848+CubOfJudahsLion@users.noreply.github.com>"]
+readme = "README.md"
+license-file = "../LICENSE.txt"
+keywords = ["SWIRL", "token", "pasting"]
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = "1.0"
+quote = "1.0"
+proc-macro2 = "1.0"

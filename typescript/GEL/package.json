@@ -1,0 +1,22 @@
+{
+  "name": "swirl-gel",
+  "version": "0.1.0",
+  "description": "JavaScript-side GEL glue for SWIRL",
+  "main": "swirl-gel.js",
+  "scripts": {
+    "dev": "tsc && cp swirl-gel.js resizer.js /f/WASM/GameTesters/PanteonChino && cp swirl-gel.js resizer.js /f/WASM/Games/PanteonChino",
+    "rel": "tsc -p tsconfig-release.json && cp swirl-gel.js resizer.js /f/WASM/GameTesters/PanteonChino && cp swirl-gel.js resizer.js /f/WASM/Games/PanteonChino",
+    "testl": "chromium --incognito http://localhost/f/WASM/GameTesters/PanteonChino/index.aspx &> /dev/null 3> /dev/null &"
+  },
+  "keywords": [
+    "swirl",
+    "gel",
+    "bridge",
+    "glue"
+  ],
+  "author": "Alexander Feterman-Naranjo",
+  "license": "SEE LICENSE IN LICENSE",
+  "devDependencies": {
+      "typescript": "~4.5.5"
+  }
+}

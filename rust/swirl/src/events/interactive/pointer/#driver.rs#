@@ -1,0 +1,454 @@
+//! Module  :   Pointer Event Driver
+//! Purpose :   Defines a global pointer-event listener that channels
+//!             browser events into library-defined events for any
+//!             **registered** hit areas. Certain visual components
+//!             will be defined with said hit areas, providing
+//!             user interaction.
+//! Version :   0.2.0
+//! Author  :   Alex Feterman
+//! Created :   2021-02
+//! Modified:   Fri 10/01/2021 09:47 AM
+
+
+use std::convert::TryFrom;
+
+use wasm_bindgen::{JsValue, JsCast, closure::Closure};
+use js_sys::{Function, Object};
+use web_sys::{window, Touch, TouchList, TouchEvent, HtmlCanvasElement};
+
+use crate::math::numeric::{Floating, TryAsFrom};
+use crate::math::geom::point::Point;
+use crate::math::geom::rect::RectBounds;
+
+use crate::utils::Shared;
+
+use crate::scene_graph::*;
+use super::super::super::EventEmitter;
+use super::super::{Modifiers};
+use super::{PointerEvent, PointerEventType, PointerEventEmitter, browser_ev_names::*};
+
+
+//  Factor out the emitters type for multiple uses.
+type Emitters<N> = Shared<Vec<PointerEventEmitter<N>>>;
+
+
+//  The inner structure has the data.
+struct PointerEventDriverInner<N: 'static> {
+    emitters        : Emitters<N>,
+    //muted           : bool,
+    //mouse_handler   : Closure<dyn FnMut(web_sys::MouseEvent)>,
+    //touch_handler   : Option<Closure<dyn FnMut(TouchEvent)>>,
+ }
+
+
+/// Hit areas are separated from `crate::mingly::Drawable`s for now. Defined
+/// as event interceptor in a rectangular area, they track both Mouse and Touch
+/// events and offer both to the consumer as `PointerEvent`s. Since we create
+/// games usable both on mobile and desktop, it makes sense to factorize the
+/// capabilities of both, offering a single, simpler interface.
+#[derive(Clone)]
+pub struct PointerEventDriver<N: 'static>(Shared<PointerEventDriverInner<N>>);
+
+
+impl<N> PointerEventDriver<N>
+    where   N   :   Floating
+                +   TryAsFrom<u32> + TryAsFrom<i32> + TryAsFrom<f64>
+                +   From<i16>
+                +   RectBounds
+                +   Copy
+{
+    //  Sets up listening for mouse-specific browser events, relaying
+    //  their coordinate-normalized and simplified versions to the hit area.
+    fn setup_mouse_handler(
+        mut emitters: Emitters<N>,
+        canvas      : HtmlCanvasElement
+    ) -> Result<Closure<dyn FnMut(web_sys::MouseEvent)>, JsValue>
+    {
+        let cnv_width                           = <N as TryAsFrom<u32>>::try_as_from(canvas.width())
+            .map_err(|_| JsValue::from_str("Canvas size conversion error"))?;
+        let cnv_height                          = <N as TryAsFrom<u32>>::try_as_from(canvas.height())
+            .map_err(|_| JsValue::from_str("Canvas size conversion error"))?;   // Original dimensions of canvas
+        let mut prev_pos: Option<Point<N>>      = None;                         // Previous mouse position
+        let canvas_copy                         = canvas.clone();               // Since the original canvas is left to the closure
+        // The closure relays simplified mouse events to the handlers, hence the name.
+        let mouse_relay                         = Closure::wrap(
+            Box::new(
+                move |browser_ev: web_sys::MouseEvent| {
+                    if let  (Ok(client_width), Ok(client_height), Ok(offset_x), Ok(offset_y))
+                            =
+                            (   <N as TryAsFrom<i32>>::try_as_from(canvas.client_width())
+                            ,   <N as TryAsFrom<i32>>::try_as_from(canvas.client_height())
+                            ,   <N as TryAsFrom<i32>>::try_as_from(browser_ev.offset_x())
+                            ,   <N as TryAsFrom<i32>>::try_as_from(browser_ev.offset_y())
+                            )
+                    {
+                        let scale   =   (cnv_width / client_width, cnv_height / client_height);
+                        let pos     =   Point::new(offset_x * scale.0, offset_y * scale.1);
+                        let type_   =   browser_ev.type_();
+                        //  For every emitter:
+                        for emitter in emitters.iter_mut() {
+                            let pos = emitter.0.node.global_to_local(&pos);  // world transform applied!
+                            if !emitter.0.muted {
+                                // Precalc the area and bounds. Faster than doing it below.
+                                if let Some(emitter_area) = emitter.0.node.bounds() {
+                                    match &type_[..] {
+                                        MOUSEENTER  |
+                                        MOUSELEAVE  |
+                                        MOUSEMOVE   => {
+                                            let prev_pos    = prev_pos.as_ref().unwrap_or(&pos);
+                                            // Previous position outside, current inside. We entered the hit area.
+                                            // Emit both an Enter and a Move event.
+                                            if emitter_area.contains(&pos) && !emitter_area.contains(&prev_pos) {
+                                                emitter.emit(
+                                                    &PointerEvent::from_browser_mouse_event(
+                                                        &browser_ev,
+                                                        PointerEventType::Enter,
+                                                        &pos
+                                                    )
+                                                );
+                                                emitter.emit(
+                                                    &PointerEvent::from_browser_mouse_event(
+                                                        &browser_ev,
+                                                        PointerEventType::Move,
+                                                        &pos
+                                                    )
+                                                );
+                                            }
+                                            // The opposite: previous position inside, current one outside.
+                                            // We just let them know that the mouse left.
+                                            else if !emitter_area.contains(&pos) && emitter_area.contains(&prev_pos) {
+                                                emitter.emit(
+                                                    &PointerEvent::from_browser_mouse_event(
+                                                        &browser_ev,
+                                                        PointerEventType::Leave,
+                                                        &pos
+                                                    )
+                                                );
+                                            }
+                                            //  Any other movement-related event inside the hit area
+                                            //  is simply reported as motion.
+                                            else if emitter_area.contains(&pos) {
+                                                emitter.emit(
+                                                    &PointerEvent::from_browser_mouse_event(
+                                                        &browser_ev,
+                                                        PointerEventType::Move,
+                                                        &pos
+                                                    )
+                                                );
+                                            }
+                                        }
+                                        //  All button events: reported if they're inside the
+                                        //  area and we have a PointerEventType for them.
+                                        _           => {
+                                            if emitter_area.contains(&pos) {
+                                                if let Ok(pev) = <PointerEventType as TryFrom<&str>>::try_from(&type_[..]) {
+                                                    emitter.emit(
+                                                        &PointerEvent::from_browser_mouse_event(
+                                                            &browser_ev,
+                                                            pev,
+                                                            &pos
+                                                        )
+                                                    );
+                                                }
+                                            }
+                                        },
+                                    }
+                                }
+                            }
+                            prev_pos = Some(pos.clone());
+                        }
+                    }
+                }
+            ) as Box<dyn FnMut(web_sys::MouseEvent)>
+        );
+        // Attach the relay to the browser listeners through the JS `Function` interface.
+        let mouse_relay_fn  = mouse_relay.as_ref().unchecked_ref::<Function>();
+        for mev in &[   MOUSEMOVE
+                    ,   MOUSEENTER, MOUSELEAVE
+                    ,   MOUSEUP,    MOUSEDOWN
+                    ,   CLICK,      DBLCLICK
+                    ]
+        {
+            canvas_copy.add_event_listener_with_callback(mev, mouse_relay_fn)?;
+        }
+        //mouse_relay.forget();   // This might go away in the future. We'll see.
+        //                        // If we create an App class with a main loop,
+        //                        // we'll just save the closure in the struct itself
+        //                        // and let the App keep that one.
+        Ok(mouse_relay)
+    }
+
+    //  The functions ahead are Touch event-related.
+
+    //  Extracts a touch with a specific id -- as long as said id
+    //  has been provided and it corresponds to one of the touches.
+    //  This double-discriminating function simplifies our event
+    //  handling patterns below.
+    fn extract_touch_from_list(touches: &TouchList, opt_id: &Option<i32>) -> Option<Touch> {
+        match opt_id {
+            &None       => None,
+            &Some(id)   => {
+                for i in 0..touches.length() {
+                    if let Some(touch) = touches.item(i) {
+                        if touch.identifier() == id {
+                            return Some(touch);
+                        }
+                    }
+                }
+                None
+            },
+        }
+    }
+
+    //  Handles a single touch event conditionally, and reports
+    //  on whether or not it was handled. A `true` return value
+    //  indicates that it lied inside the hit area and it was
+    //  processed; false indicates that it was ignored.
+    fn handle_touch_event(
+        touch       : &Touch,
+        canvas      : &HtmlCanvasElement,
+        cnv_width   : N,
+        cnv_height  : N,
+        dispatch    : &[PointerEventType],
+        emitters    : &mut Emitters<N>,
+        browser_ev  : &TouchEvent
+    ) -> bool
+    {
+        let canvas_bounds   = canvas.get_bounding_client_rect();
+        if let  (   Ok(client_x)
+                ,   Ok(client_y)
+                ,   Ok(client_width)
+                ,   Ok(client_height)
+                ,   Ok(bounds_x)
+                ,   Ok(bounds_y)
+                ) =
+                (   <N as TryAsFrom<i32>>::try_as_from(touch.client_x())
+                ,   <N as TryAsFrom<i32>>::try_as_from(touch.client_y())
+                ,   <N as TryAsFrom<i32>>::try_as_from(canvas.client_width())
+                ,   <N as TryAsFrom<i32>>::try_as_from(canvas.client_height())
+                ,   <N as TryAsFrom<f64>>::try_as_from(canvas_bounds.x())
+                ,   <N as TryAsFrom<f64>>::try_as_from(canvas_bounds.y())
+                )
+        {
+            let scale       =   (   cnv_width  / client_width
+                                ,   cnv_height / client_height
+                                );
+            let pos         =   Point::new(
+                                    (client_x - bounds_x) * scale.0,
+                                    (client_y - bounds_y) * scale.1
+                                );
+            let mut result  =   false;
+            for emitter in emitters.iter_mut() {
+                if !emitter.0.muted {
+                    let pos     =   emitter.0.node.global_to_local(&pos);
+                    if let Some(emitter_area) = emitter.0.node.bounds() {
+                        if emitter_area.contains(&pos) {
+                            result = true;
+                            for &ev_type in dispatch {
+                                emitter.emit(
+                                    &PointerEvent::new(
+                                        ev_type,
+                                        &pos,
+                                        &Modifiers::from_touch_event_modifiers(&browser_ev)
+                                    )
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+            result
+        }
+        else {
+            false
+        }
+    }
+
+    //const DBL_TIME      : Duration      = Duration::from_millis(500);
+
+    //  The counterpart of `setup_mouse_handler` above, it specifically
+    //  translates touch into mouse-like events. This limits your interaction
+    //  to one finger, but as our games have to work for mouse users as
+    //  well, limiting our tracking to a single touch is the logical thing to do.
+    fn setup_touch_handler(
+        mut emitters: Emitters<N>,
+        canvas      : HtmlCanvasElement
+    ) -> Result<Closure<dyn FnMut(TouchEvent)>, JsValue>
+    {
+        if let (Ok(cnv_width), Ok(cnv_height))  =   (   <N as TryAsFrom<u32>>::try_as_from(canvas.width())
+                                                    ,   <N as TryAsFrom<u32>>::try_as_from(canvas.height())
+                                                    )
+        {
+            let mut tracked_touch   : Option<i32>   = None;
+            let canvas_copy                         = canvas.clone();
+            let touch_relay                         = Closure::wrap(Box::new(
+                move |browser_ev: TouchEvent| {
+                    browser_ev.stop_immediate_propagation();
+                    let type_           = browser_ev.type_();
+                    match &type_[..] {
+                        TOUCHSTART if tracked_touch.is_none() => {
+                            let touch       = browser_ev.changed_touches().item(0).unwrap();
+                            let dispatch    = [PointerEventType::Enter, PointerEventType::Down];
+                            if Self::handle_touch_event(
+                                &touch, &canvas, cnv_width, cnv_height, &dispatch[..], &mut emitters, &browser_ev
+                            )
+                            {
+                                tracked_touch = Some(touch.identifier());
+                            }
+                        },
+                        TOUCHMOVE                             => {
+                            match Self::extract_touch_from_list(&browser_ev.touches(), &tracked_touch) {
+                                Some(touch) => {
+                                    let bounds  = canvas.get_bounding_client_rect();
+                                    if let  (   Ok(bounds_width)
+                                            ,   Ok(bounds_height)
+                                            ,   Ok(client_x)
+                                            ,   Ok(client_y)
+                                            ,   Ok(bounds_x)
+                                            ,   Ok(bounds_y)
+                                            )
+                                        =   (   <N as TryAsFrom<f64>>::try_as_from(bounds.width())
+                                            ,   <N as TryAsFrom<f64>>::try_as_from(bounds.height())
+                                            ,   <N as TryAsFrom<i32>>::try_as_from(touch.client_x())
+                                            ,   <N as TryAsFrom<i32>>::try_as_from(touch.client_y())
+                                            ,   <N as TryAsFrom<f64>>::try_as_from(bounds.x())
+                                            ,   <N as TryAsFrom<f64>>::try_as_from(bounds.y())
+                                            )
+                                    {
+                                        let scale   =   (   bounds_width  / cnv_width
+                                                        ,   bounds_height / cnv_height
+                                                        );
+                                        let pos     =   Point::<N>::new(
+                                            (client_x - bounds_x) * scale.0,
+                                            (client_y - bounds_y) * scale.1
+                                        );
+                                        for emitter in emitters.iter_mut() {
+                                            if !emitter.0.muted {
+                                                if let Some(bounds) = emitter.0.node.bounds() {
+                                                    let pos         = emitter.0.node.global_to_local(&pos);
+                                                    let contains_pt = bounds.contains(&pos);
+                                                    emitter.emit(
+                                                        &PointerEvent::new(
+                                                            if contains_pt {
+                                                                PointerEventType::Move
+                                                            }
+                                                            else {
+                                                                tracked_touch = None;
+                                                                PointerEventType::Leave
+                                                            },
+                                                            &pos,
+                                                            &Modifiers::from_touch_event_modifiers(&browser_ev)
+                                                        )
+                                                    );
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                _           => (),
+                            }
+                        },
+                        TOUCHCANCEL                           => {
+                            match Self::extract_touch_from_list(&browser_ev.changed_touches(), &tracked_touch) {
+                                Some(touch) => {
+                                    let dispatch = [PointerEventType::Leave];
+                                    if Self::handle_touch_event(
+                                        &touch, &canvas, cnv_width, cnv_height, &dispatch[..], &mut emitters, &browser_ev
+                                    )
+                                    {
+                                        tracked_touch = None;
+                                    }
+                                },
+                                _           => (),
+                            }
+                        },
+                        TOUCHEND                              => {
+                            match Self::extract_touch_from_list(&browser_ev.changed_touches(), &tracked_touch) {
+                                Some(touch) => {
+                                    let dispatch = [PointerEventType::Up, PointerEventType::Click, PointerEventType::Leave];
+                                    if Self::handle_touch_event(
+                                        &touch, &canvas, cnv_width, cnv_height, &dispatch[..], &mut emitters, &browser_ev
+                                    )
+                                    {
+                                        tracked_touch = None;
+                                    }
+                                },
+                                _           => ()
+                            }
+                        },
+                        _                                     => (),
+                    }
+                }
+            ) as Box<dyn FnMut(TouchEvent)>);
+            let touch_relay_fn                      = touch_relay.as_ref().unchecked_ref::<Function>();
+            for mev in &[TOUCHCANCEL, TOUCHEND, TOUCHMOVE, TOUCHSTART]
+            {
+                canvas_copy.add_event_listener_with_callback(mev, touch_relay_fn)?;
+            }
+            //touch_relay.forget();
+            Ok(touch_relay)
+        }
+        else {
+            Err(JsValue::from_str("Couldn't convert canvas dimensions."))
+        }
+    }
+
+    const EMITTER_ESTIMATION: usize = 64;
+
+    pub fn new(canvas: HtmlCanvasElement) -> Result<Self, JsValue> {
+        let emitters        = Shared::new(Vec::<PointerEventEmitter<N>>::with_capacity(Self::EMITTER_ESTIMATION));
+        let mouse_handler   = Self::setup_mouse_handler(emitters.clone(), canvas.clone())?;
+        mouse_handler.forget();
+        let touch_supported = window()
+            .map(|wnd| Object::keys(wnd.as_ref())
+                .filter(&mut |val: JsValue, _idx, _arr| &val.as_string().unwrap() == "ontouchstart")
+                .length()
+            )
+            .unwrap_or(0) > 0;
+        /*let touch_handler   =*/ if touch_supported {
+            //Some(Self::setup_touch_handler(emitters.clone(), canvas.clone())?)
+            let touch_handler = Self::setup_touch_handler(emitters.clone(), canvas.clone())?;
+            touch_handler.forget();
+        }
+        //else {
+        //    None
+        //};
+        Ok(PointerEventDriver(Shared::new(PointerEventDriverInner {
+            emitters,
+            //mouse_handler,
+            //touch_handler,
+            //muted: false
+        })))
+    }
+
+    fn bin_search(lhs: &PointerEventEmitter<N>, emitters: &Emitters<N>) -> Result<usize, usize> {
+        let lhs = lhs.0.as_ptr() as usize;
+        emitters.binary_search_by(|em| {
+            let rhs = em.0.as_ptr() as usize;
+            lhs.cmp(&rhs)
+        })
+    }
+
+    pub fn add_emitter_dyn(&mut self, node: Box<dyn SceneGraph<N>>) -> PointerEventEmitter<N> {
+        let emitter = PointerEventEmitter::new_dyn(node);
+        let ins_pos = Self::bin_search(&emitter, &self.0.emitters).unwrap_err();
+        self.0.emitters.insert(ins_pos, emitter.clone());
+        emitter
+    }
+
+    #[inline(always)]
+    pub fn add_emitter<S: SceneGraph<N> + Clone + 'static>(&mut self, node: &S) -> PointerEventEmitter<N> {
+        self.add_emitter_dyn(Box::new(node.clone()) as Box<dyn SceneGraph<N>>)
+    }
+
+    pub fn remove_emitter(&mut self, emitter: PointerEventEmitter<N>) -> bool {
+        match Self::bin_search(&emitter, &self.0.emitters) {
+            Ok(_)       =>
+                false,
+            Err(pos)    => {
+                self.0.emitters.remove(pos);
+                true
+            },
+        }
+    }
+}

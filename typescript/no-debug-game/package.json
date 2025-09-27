@@ -1,0 +1,19 @@
+{
+  "name": "no-debug-game",
+  "version": "1.0.0",
+  "description": "Scripts and pages to run GEL games independently",
+  "main": "run-game.js",
+  "scripts": {
+    "dev": "tsc"
+  },
+  "keywords": [
+    "gel",
+    "run",
+    "no-debug"
+  ],
+  "author": "Alexander Feterman-Naranjo",
+  "license": "SEE LICENSE IN LICENSE",
+  "devDependencies": {
+    "typescript": "~4.6.2"
+  }
+}

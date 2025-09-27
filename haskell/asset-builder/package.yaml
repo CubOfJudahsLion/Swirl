@@ -1,0 +1,51 @@
+name:                asset-builder
+version:             0.1.0.0
+license-file:        LICENSE
+author:              "Alexander Feterman-Naranjo"
+maintainer:          "10951848+CubOfJudahsLion@users.noreply.github.com"
+copyright:           "© 2022 MultiSlot Inc."
+git:                 "http://multidev:7990/scm/dev/gameengines.git"
+
+extra-source-files:
+- LICENSE
+- README.md
+- ChangeLog.md
+
+# Metadata used when publishing your package
+synopsis:            A compiler from SWIRL's Assets Description Language (.sadl) to Rust
+category:            language
+
+# To avoid duplicated efforts in documentation and dealing with the
+# complications of embedding Haddock markup inside cabal files, it is
+# common to point users to the README.md file.
+description:         Please see the README.md file
+
+dependencies:
+- base >= 4.7 && < 5
+
+library:
+  source-dirs: src
+  dependencies:
+  - array
+
+executables:
+  sadlc:
+    main:                Main.hs
+    source-dirs:         app
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - asset-builder
+
+tests:
+  asset-builder-test:
+    main:                Spec.hs
+    source-dirs:         test
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - asset-builder

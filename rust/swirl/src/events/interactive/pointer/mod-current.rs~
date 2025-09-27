@@ -1,0 +1,173 @@
+//! Module  :   Pointer Events
+//! Purpose :   Mouse and Touch events, translated into a single tipe
+//!             of event: a ```PointerEvent```, as implemented below.
+//! Version :   0.1.0
+//! Author  :   Alex Feterman
+//! Created :   Thu Feb 25 03:21:53 PM CST 2021
+//! Modified:   Wed 09/29/2021 05:44 PM
+
+
+use std::convert::TryFrom;
+use std::ops::{Deref, DerefMut};
+
+use crate::math::numeric::Floating;
+use crate::math::geom::rect::RectBounds;
+use crate::utils::{shared::Shared, enum_set::make_enum_set};
+use crate::scene_graph::SceneGraph;
+use super::super::{EventLike, generic::GenericEmitter};
+use super::super::super::{Point};
+use super::{Modifiers, UIEventLike};
+
+//  The "event driver" for mouse events. Transparent to user.
+pub mod driver;
+pub use driver::*;
+
+
+//  A list of browser event names.
+pub(crate) mod browser_ev_names {
+    pub const CLICK         : &'static str   = "click";
+    pub const DBLCLICK      : &'static str   = "dblclick";
+    pub const MOUSEMOVE     : &'static str   = "mousemove";
+    pub const MOUSEDOWN     : &'static str   = "mousedown";
+    pub const MOUSEUP       : &'static str   = "mouseup";
+    pub const MOUSEENTER    : &'static str   = "mouseenter";
+    pub const MOUSELEAVE    : &'static str   = "mouseleave";
+    pub const TOUCHSTART    : &'static str   = "touchstart";
+    pub const TOUCHMOVE     : &'static str   = "touchmove";
+    pub const TOUCHEND      : &'static str   = "touchend";
+    pub const TOUCHCANCEL   : &'static str   = "touchcancel";
+}
+
+
+/// Pointer events are UI events with coordinates.
+pub trait PointerEventLike: UIEventLike {
+    fn pos(&self) -> &Point<i16>;
+}
+
+//  Identifies the kind of pointer event.
+make_enum_set!{
+    PointerEventType ::=
+        Move        => browser_ev_names::MOUSEMOVE,
+        Enter       => browser_ev_names::MOUSEENTER,
+        Leave       => browser_ev_names::MOUSELEAVE,
+        Down        => browser_ev_names::MOUSEDOWN,
+        Up          => browser_ev_names::MOUSEUP,
+        Click       => browser_ev_names::CLICK,
+        DblClick    => browser_ev_names::DBLCLICK,
+}
+
+
+impl TryFrom<&str> for PointerEventType {
+    /// There's only one kind of error that can occur:
+    /// the string is not the name of a pointer event.
+    type Error = ();
+
+    fn try_from(name: &str) -> Result<Self, Self::Error> {
+        use browser_ev_names::*;
+        use PointerEventType::*;
+        match name {
+            CLICK       =>  Ok(Click),
+            DBLCLICK    =>  Ok(DblClick),
+            TOUCHSTART  |
+            MOUSEDOWN   =>  Ok(Down),
+            MOUSEENTER  =>  Ok(Enter),
+            MOUSELEAVE  =>  Ok(Leave),
+            TOUCHMOVE   |
+            MOUSEMOVE   =>  Ok(Move),
+            TOUCHEND    |
+            MOUSEUP     =>  Ok(Up),
+            _           =>  Err(())
+        }
+    }
+}
+
+
+/// The pointer event proper.
+#[derive(Clone)]
+pub struct PointerEvent {
+    type_   : PointerEventType,
+    pos     : Point<i16>,
+    mods    : Modifiers,
+}
+
+impl PointerEvent {
+    /// Create from Copy or reference types.
+    pub fn new(type_: PointerEventType, pos: &Point<i16>, mods: &Modifiers) -> Self {
+        PointerEvent {
+            type_,
+            pos     : pos.clone(),
+            mods    : mods.clone(),
+        }
+    }
+}
+
+impl EventLike for PointerEvent {
+    type EventIdType = PointerEventType;
+    fn type_(&self) -> Self::EventIdType { self.type_ }
+}
+
+impl UIEventLike for PointerEvent {
+    fn modifiers(&self) -> &Modifiers { &self.mods }
+}
+
+impl PointerEventLike for PointerEvent {
+    fn pos(&self) -> &Point<i16> { &self.pos }
+}
+
+
+//  We need an emitter for pointer events. We're basically using containment --
+//  wrapping one around a generic emitter with the right types. We're also
+//  using a `SceneGraph` element to delimit our area of interest.
+struct PointerEventEmitterInner<N> {
+    pub(crate)  emitter     : GenericEmitter<PointerEvent>,
+    pub(crate)  node        : Box<dyn SceneGraph<N>>,
+    pub(crate)  muted       : bool,
+}
+
+
+/// A handle to a pointer events emitter.
+pub struct PointerEventEmitter<N>(Shared<PointerEventEmitterInner<N>>);
+
+
+impl<N> PointerEventEmitter<N>
+    where   N   :   Copy
+                +   Floating
+                +   RectBounds
+                +   From<i16>
+{
+    /// Create a new PointerEventEmitter for a given
+    /// `SceneGraph`-implementing element.
+    fn new_dyn(node: Box<dyn SceneGraph<N>>) -> Self {
+        PointerEventEmitter(Shared::new(PointerEventEmitterInner {
+            emitter     : GenericEmitter::<PointerEvent>::new(),
+            node,
+            muted       : false,
+        }))
+    }
+
+    #[inline(always)]
+    pub(crate) fn new<S: SceneGraph<N> + Clone + 'static>(node: &S) -> Self {
+        Self::new_dyn(Box::new(node.clone()) as Box<dyn SceneGraph<N>>)
+    }
+
+    pub fn muted(&self) -> bool { self.0.muted }
+
+    pub fn set_muted(&mut self, muted: bool) { self.0.muted = muted; }
+}
+
+
+impl<N> Deref for PointerEventEmitter<N> {
+    type Target = GenericEmitter<PointerEvent>;
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0.emitter
+    }
+}
+
+impl<N> DerefMut for PointerEventEmitter<N> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0.emitter
+    }
+}
